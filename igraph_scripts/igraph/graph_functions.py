@@ -50,6 +50,8 @@ def threshold_graph(given_df, threshold_distance):
 """
 This function should allow for the automatic finding of a the coalescence distance
 from a given dataframe.
+
+Does not work. Need to make sure that is actually finding the longest shortest distance.
 """
 def coalescence_graph(given_df):
     # List to hold all pairwise distances
@@ -104,7 +106,104 @@ def coalescence_graph(given_df):
     return final_graph
 
 
+"""
+Still does not work
+"""
+def coalescence_graph2(given_df, given_threshold):
+    # List to hold all pairwise distances
+    distances = []
 
+    # Calculate all pairwise distances
+    for i in range(len(given_df)):
+        for j in range(i + 1, len(given_df)):
+            easting_diff = given_df.iloc[i]['x_easting'] - given_df.iloc[j]['x_easting']
+            northing_diff = given_df.iloc[i]['y_northing'] - given_df.iloc[j]['y_northing']
+            distance = np.sqrt(easting_diff**2 + northing_diff**2)
+            distances.append(distance)
+
+    # Sort distances
+    distances.sort()
+
+    # Function to check if the graph is connected for a given threshold
+    def is_connected(threshold):
+        g_temp = ig.Graph()
+        g_temp.add_vertices(len(given_df))
+        g_temp.vs["name"] = given_df['lek_id'].tolist()
+
+        for i in range(len(given_df)):
+            for j in range(i + 1, len(given_df)):
+                easting_diff = given_df.iloc[i]['x_easting'] - given_df.iloc[j]['x_easting']
+                northing_diff = given_df.iloc[i]['y_northing'] - given_df.iloc[j]['y_northing']
+                distance = np.sqrt(easting_diff**2 + northing_diff**2)
+
+                if distance <= threshold:
+                    g_temp.add_edge(i, j)
+
+        return g_temp.is_connected(), g_temp
+    
+    threshold = given_threshold
+    g_temp = is_connected(threshold)
+    final_graph = None
+    # Get the number of clusters
+    num_clusters = len(g_temp.connected_components())
+    
+    while num_clusters > 1:
+        threshold += 1
+        if (threshold % 100) == 0:
+            print(threshold)
+
+    return g_temp
+
+
+"""
+Works but is slow
+"""
+def coalescence(given_df):
+    # Initialize variables for binary search
+    min_threshold = 0
+    max_threshold = 500000
+
+    # Calculate all pairwise distances once to set the upper bound
+    pairwise_distances = []
+    for i in range(len(given_df)):
+        for j in range(i + 1, len(given_df)):
+            easting_diff = given_df.iloc[i]['x_easting'] - given_df.iloc[j]['x_easting']
+            northing_diff = given_df.iloc[i]['y_northing'] - given_df.iloc[j]['y_northing']
+            distance = np.sqrt(easting_diff**2 + northing_diff**2)
+            pairwise_distances.append(distance)
+
+    # Set max_threshold to the maximum pairwise distance
+    max_threshold = max(pairwise_distances)
+
+    # Binary search for the minimum threshold to fully connect the graph
+    while max_threshold - min_threshold > 1e-6:  # Small tolerance for precision
+        mid_threshold = (min_threshold + max_threshold) / 2
+
+        # Create a temporary graph with the current mid_threshold
+        g_temp = ig.Graph()
+        g_temp.add_vertices(len(given_df))
+        g_temp.vs["name"] = given_df['lek_id'].tolist()
+
+        for i in range(len(given_df)):
+            for j in range(i + 1, len(given_df)):
+                easting_diff = given_df.iloc[i]['x_easting'] - given_df.iloc[j]['x_easting']
+                northing_diff = given_df.iloc[i]['y_northing'] - given_df.iloc[j]['y_northing']
+                distance = np.sqrt(easting_diff**2 + northing_diff**2)
+
+                if distance <= mid_threshold:
+                    g_temp.add_edge(i, j)
+
+        # Check the number of clusters
+        num_clusters = len(g_temp.clusters())
+
+        # Adjust threshold range based on connectivity
+        if num_clusters == 1:
+            max_threshold = mid_threshold
+        else:
+            min_threshold = mid_threshold
+
+    print(max_threshold)
+    return g_temp
 
 """
 This function allows for the exporting the edges from a given graph.
