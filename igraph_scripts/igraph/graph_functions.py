@@ -45,6 +45,24 @@ def threshold_graph(given_df, threshold_distance):
 
     return g_temp
 
+from scipy.spatial.distance import pdist, squareform
+def imprv_threshold_graph(given_df, threshold_distance):
+    # Extract coordinates as a NumPy array for efficient computation
+    coords = given_df[['x_easting', 'y_northing']].to_numpy()
+    
+    # Use scipy to compute pairwise distances efficiently
+    distances = squareform(pdist(coords))
+    
+    # Create an adjacency matrix based on the threshold
+    adjacency_matrix = distances <= threshold_distance
+    
+    # Create the graph
+    g_temp = ig.Graph.Adjacency(adjacency_matrix.tolist(), mode='undirected')
+    
+    # Set vertex names
+    g_temp.vs["name"] = given_df['lek_id'].tolist()
+    
+    return g_temp
 
 
 """
